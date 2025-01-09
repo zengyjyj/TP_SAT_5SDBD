@@ -24,41 +24,36 @@ namespace sat {
     }
 
     auto Solver::rebase() const -> std::vector<Clause> {
-    std::vector<Clause> reducedClauses; 
+        std::vector<Clause> reducedClauses;
 
-    for (const auto& clausePtr : clauses) {
-        bool isSatisfied = false;            
-        std::vector<Literal> reducedLiterals;
+        for (const auto& clausePtr : clauses) {
+            bool isSatisfied = false;            
+            std::vector<Literal> reducedLiterals;
 
-
-        for (const auto& literal : *clausePtr) {
-            if (satisfied(literal)) {
-                isSatisfied = true; 
-                break;
+            for (const auto& literal : *clausePtr) {
+                if (satisfied(literal)) {
+                    isSatisfied = true; 
+                    break; 
+                }
+                if (!falsified(literal)) {
+                    reducedLiterals.push_back(literal); 
+                }
             }
-            if (!falsified(literal)) {
-                reducedLiterals.push_back(literal); 
-            }
-        }
 
-        if (!isSatisfied) {
-            if (reducedLiterals.size() == 1) {
-                reducedClauses.emplace_back(reducedLiterals);
-            } else if (!reducedLiterals.empty()) {               
+            if (!isSatisfied && !reducedLiterals.empty()) {               
                 reducedClauses.emplace_back(reducedLiterals);
             }
         }
-    }
 
-    for (unsigned i = 0; i < model.size(); ++i) {
-        if (model[i] == TruthValue::True) {
-            reducedClauses.emplace_back(std::vector<Literal>{pos(Variable(i))});
-        } else if (model[i] == TruthValue::False) {
-            reducedClauses.emplace_back(std::vector<Literal>{neg(Variable(i))});
+        for (unsigned i = 0; i < model.size(); ++i) {
+            if (model[i] == TruthValue::True) {
+                reducedClauses.emplace_back(std::vector<Literal>{pos(Variable(i))});
+            } else if (model[i] == TruthValue::False) {
+                reducedClauses.emplace_back(std::vector<Literal>{neg(Variable(i))});
+            }
         }
-    }
 
-    return reducedClauses;
+        return reducedClauses;
 }
 
 
@@ -97,6 +92,53 @@ namespace sat {
     }
 
     bool Solver::unitPropagate() {
-        throw NOT_IMPLEMENTED;
+        std::vector<Literal> unitQueue; 
+
+        for (const auto& clausePtr : clauses) {
+            std::vector<Literal> unassignedLiterals;
+
+            for (const auto& literal : *clausePtr) {
+                if (!falsified(literal) && !satisfied(literal)) {
+                    unassignedLiterals.push_back(literal);
+                }
+            }
+
+            if (unassignedLiterals.size() == 1) {
+                unitQueue.push_back(unassignedLiterals[0]);
+            } else if (unassignedLiterals.empty()) {
+                return false;
+            }
+        }
+
+        while (!unitQueue.empty()) {
+            Literal currentLiteral = unitQueue.front();
+            unitQueue.erase(unitQueue.begin());
+
+            if (!assign(currentLiteral)) {
+                return false; 
+            }
+
+            for (const auto& clausePtr : clauses) {
+                bool isSatisfied = false;
+                std::vector<Literal> unassignedLiterals;
+
+                for (const auto& literal : *clausePtr) {
+                    if (satisfied(literal)) {
+                        isSatisfied = true;
+                        break;
+                    } else if (!falsified(literal)) {
+                        unassignedLiterals.push_back(literal);
+                    }
+                }
+
+                if (!isSatisfied && unassignedLiterals.size() == 1) {
+                    unitQueue.push_back(unassignedLiterals[0]); 
+                } else if (!isSatisfied && unassignedLiterals.empty()) {
+                    return false; 
+                }
+            }
+        }
+
+        return true; 
     }
 } // sat
