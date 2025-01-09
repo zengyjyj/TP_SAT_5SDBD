@@ -92,53 +92,58 @@ namespace sat {
     }
 
     bool Solver::unitPropagate() {
-        std::vector<Literal> unitQueue; 
-
-        for (const auto& clausePtr : clauses) {
-            std::vector<Literal> unassignedLiterals;
-
-            for (const auto& literal : *clausePtr) {
-                if (!falsified(literal) && !satisfied(literal)) {
-                    unassignedLiterals.push_back(literal);
+        bool changed = true;
+        std::vector<std::shared_ptr<Clause>> currentClauses;
+        
+        while (changed) {
+            changed = false;
+            currentClauses.clear();
+            
+            // Make a copy of valid clauses to avoid iterator invalidation
+            for (const auto& clausePtr : clauses) {
+                if (clausePtr) {
+                    currentClauses.push_back(clausePtr);
                 }
             }
-
-            if (unassignedLiterals.size() == 1) {
-                unitQueue.push_back(unassignedLiterals[0]);
-            } else if (unassignedLiterals.empty()) {
-                return false;
-            }
-        }
-
-        while (!unitQueue.empty()) {
-            Literal currentLiteral = unitQueue.front();
-            unitQueue.erase(unitQueue.begin());
-
-            if (!assign(currentLiteral)) {
-                return false; 
-            }
-
-            for (const auto& clausePtr : clauses) {
-                bool isSatisfied = false;
-                std::vector<Literal> unassignedLiterals;
-
+            
+            for (const auto& clausePtr : currentClauses) {
+                // Count unassigned literals and keep track of the last one
+                Literal unitLiteral(0);
+                int unassignedCount = 0;
+                bool clauseSatisfied = false;
+                
                 for (const auto& literal : *clausePtr) {
                     if (satisfied(literal)) {
-                        isSatisfied = true;
+                        clauseSatisfied = true;
                         break;
-                    } else if (!falsified(literal)) {
-                        unassignedLiterals.push_back(literal);
+                    }
+                    if (!falsified(literal)) {
+                        unassignedCount++;
+                        unitLiteral = literal;
+                        if (unassignedCount > 1) break; // Optimization: no need to continue if more than one
                     }
                 }
-
-                if (!isSatisfied && unassignedLiterals.size() == 1) {
-                    unitQueue.push_back(unassignedLiterals[0]); 
-                } else if (!isSatisfied && unassignedLiterals.empty()) {
-                    return false; 
+                
+                // Skip satisfied clauses
+                if (clauseSatisfied) {
+                    continue;
+                }
+                
+                // If no literals are unassigned, clause is unsatisfiable
+                if (unassignedCount == 0) {
+                    return false;
+                }
+                
+                // If exactly one literal is unassigned, it must be true
+                if (unassignedCount == 1) {
+                    if (!assign(unitLiteral)) {
+                        return false;
+                    }
+                    changed = true;
                 }
             }
         }
-
-        return true; 
+        
+        return true;
     }
 } // sat
