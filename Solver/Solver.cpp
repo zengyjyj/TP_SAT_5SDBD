@@ -99,7 +99,6 @@ namespace sat {
             changed = false;
             currentClauses.clear();
             
-            // Make a copy of valid clauses to avoid iterator invalidation
             for (const auto& clausePtr : clauses) {
                 if (clausePtr) {
                     currentClauses.push_back(clausePtr);
@@ -107,7 +106,6 @@ namespace sat {
             }
             
             for (const auto& clausePtr : currentClauses) {
-                // Count unassigned literals and keep track of the last one
                 Literal unitLiteral(0);
                 int unassignedCount = 0;
                 bool clauseSatisfied = false;
@@ -120,21 +118,18 @@ namespace sat {
                     if (!falsified(literal)) {
                         unassignedCount++;
                         unitLiteral = literal;
-                        if (unassignedCount > 1) break; // Optimization: no need to continue if more than one
+                        if (unassignedCount > 1) break; 
                     }
                 }
-                
-                // Skip satisfied clauses
+              
                 if (clauseSatisfied) {
                     continue;
                 }
                 
-                // If no literals are unassigned, clause is unsatisfiable
                 if (unassignedCount == 0) {
                     return false;
                 }
                 
-                // If exactly one literal is unassigned, it must be true
                 if (unassignedCount == 1) {
                     if (!assign(unitLiteral)) {
                         return false;
